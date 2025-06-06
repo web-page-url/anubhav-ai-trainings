@@ -1,12 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { LearningSession, UserProgress, Section } from '@/types/learning';
 import { defaultSections, createDefaultSession } from '@/lib/session-data';
 import QuizCard from '@/components/quiz/QuizCard';
 import Timer from '@/components/ui/Timer';
 
+interface UserInfo {
+  id: string;
+  name: string;
+  email: string;
+  mobile?: string;
+}
+
 export default function LearningPage() {
+  const router = useRouter();
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [session, setSession] = useState<LearningSession>(createDefaultSession());
   const [progress, setProgress] = useState<UserProgress>({
     sessionId: session.id,
@@ -21,6 +32,47 @@ export default function LearningPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showTransparency, setShowTransparency] = useState(false);
+
+  // Check authentication on component mount
+  useEffect(() => {
+    checkAuthentication();
+  }, []);
+
+  const checkAuthentication = () => {
+    setIsCheckingAuth(true);
+    
+    try {
+      const storedUserInfo = localStorage.getItem('user_info');
+      const userId = localStorage.getItem('learning_user_id');
+      
+      if (!storedUserInfo || !userId) {
+        // User is not logged in, redirect to login
+        router.push('/login');
+        return;
+      }
+      
+      const userInfo = JSON.parse(storedUserInfo);
+      setUserInfo(userInfo);
+      
+      // Initialize session with user info
+      setSession(prev => ({
+        ...prev,
+        participantName: userInfo.name,
+        participantEmail: userInfo.email
+      }));
+      
+      setProgress(prev => ({
+        ...prev,
+        userId: userId
+      }));
+      
+    } catch (error) {
+      console.error('Authentication check failed:', error);
+      router.push('/login');
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
 
   const currentSection = defaultSections.find(s => s.id === progress.currentSection);
   const currentPart = currentSection ? currentSection[`part${progress.currentPart}` as keyof Section] : null;
@@ -129,14 +181,123 @@ export default function LearningPage() {
 
   const stepContent = getCurrentStepContent();
 
+  // Show loading screen while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 flex items-center justify-center p-4">
+        <div className="text-center space-y-6">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">
+              🔐 Verifying Access
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300">
+              Checking your login status...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login required screen if user is not authenticated
+  if (!userInfo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 flex items-center justify-center p-4">
+        <div className="max-w-md mx-auto text-center space-y-8">
+          <div className="space-y-4">
+            <div className="text-6xl">🔒</div>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+              Login Required
+            </h1>
+            <p className="text-lg text-gray-600 dark:text-gray-300">
+              You must be logged in to access the learning platform and track your progress.
+            </p>
+          </div>
+
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
+            <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">
+              Why login is required:
+            </h3>
+            <div className="space-y-3 text-left mb-6">
+              <div className="flex items-center gap-3">
+                <span className="text-blue-500 text-xl">📊</span>
+                <span className="text-gray-600 dark:text-gray-300">Track your personal progress</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-green-500 text-xl">💾</span>
+                <span className="text-gray-600 dark:text-gray-300">Save your scores and achievements</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-purple-500 text-xl">🏆</span>
+                <span className="text-gray-600 dark:text-gray-300">Earn certificates with your name</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-orange-500 text-xl">📈</span>
+                <span className="text-gray-600 dark:text-gray-300">View detailed analytics</span>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <button
+                onClick={() => router.push('/login')}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200"
+              >
+                🔓 Login to Continue
+              </button>
+              
+              <button
+                onClick={() => router.push('/register')}
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200"
+              >
+                👤 Create New Account
+              </button>
+              
+              <button
+                onClick={() => router.push('/')}
+                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+              >
+                ← Back to Home
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (session.status === 'not-started') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 flex items-center justify-center p-4">
+        {/* Header with user info and logout */}
+        <div className="absolute top-4 right-4 flex items-center space-x-4">
+          <div className="text-right">
+            <div className="text-sm font-medium text-gray-900 dark:text-white">{userInfo.name}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{userInfo.email}</div>
+          </div>
+          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
+            {userInfo.name.charAt(0).toUpperCase()}
+          </div>
+          <button
+            onClick={() => {
+              localStorage.removeItem('learning_user_id');
+              localStorage.removeItem('user_info');
+              router.push('/');
+            }}
+            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
+          >
+            🔓 Logout
+          </button>
+        </div>
+
         <div className="max-w-2xl mx-auto text-center space-y-8">
           <div className="space-y-4">
             <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
               🎓 Interactive Learning Platform
             </h1>
+            <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-4 py-2 rounded-lg inline-block">
+              ✅ Welcome back, <strong>{userInfo.name}</strong>! Your progress will be tracked.
+            </div>
             <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 dark:text-white">
               {session.title}
             </h2>
