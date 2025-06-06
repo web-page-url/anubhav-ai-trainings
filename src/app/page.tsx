@@ -48,6 +48,39 @@ export default function Home() {
             Read our docs
           </a>
         </div>
+
+        {/* Additional Links */}
+        <div className="mt-8 flex flex-col sm:flex-row gap-4">
+          <a
+            href="/birthday"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-200"
+          >
+            🎉 <span>Rahul's Birthday Page</span> 🎂
+          </a>
+          <a
+            href="/learning"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-200"
+          >
+            🎓 <span>Interactive Learning Platform</span> ⚡
+          </a>
+          <a
+            href="/dashboard"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-200"
+          >
+            📊 <span>Admin Dashboard</span> 🔍
+          </a>
+        </div>
+        
+        {/* Transparency Link */}
+        <div className="mt-4 flex justify-center">
+          <a
+            href="/transparency"
+            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+          >
+            <span>🔍</span>
+            <span>See how this was built</span>
+          </a>
+        </div>
       </main>
       <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
         <a
