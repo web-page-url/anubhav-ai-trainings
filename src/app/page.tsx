@@ -156,6 +156,160 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {/* 5 Individual Sections */}
+          <div className="mt-16">
+            <div className="text-center mb-12">
+              <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                📚 Individual Learning Sections
+              </h3>
+              <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+                Choose specific topics to focus on. Each section contains targeted questions stored in our database.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Section 1: HTML Fundamentals */}
+              <div className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 to-orange-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative p-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-orange-600 rounded-lg flex items-center justify-center mb-4">
+                    <span className="text-white text-xl">🏗️</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white">Section 1</h4>
+                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Beginner</span>
+                  </div>
+                  <h5 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">HTML Fundamentals</h5>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
+                    Master the structure and semantics of HTML5 with practical questions
+                  </p>
+                  <a
+                    href="/section-1"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 w-full justify-center"
+                  >
+                    <span>Start Section 1</span> 🚀
+                  </a>
+                </div>
+              </div>
+
+              {/* Section 2: CSS Styling */}
+              <div className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative p-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center mb-4">
+                    <span className="text-white text-xl">🎨</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white">Section 2</h4>
+                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Beginner</span>
+                  </div>
+                  <h5 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">CSS Styling & Layout</h5>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
+                    Learn modern CSS techniques and responsive design principles
+                  </p>
+                  <a
+                    href="/section-2"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 w-full justify-center"
+                  >
+                    <span>Start Section 2</span> 🚀
+                  </a>
+                </div>
+              </div>
+
+              {/* Section 3: JavaScript */}
+              <div className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative p-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-lg flex items-center justify-center mb-4">
+                    <span className="text-white text-xl">⚡</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white">Section 3</h4>
+                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">Intermediate</span>
+                  </div>
+                  <h5 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">JavaScript Essentials</h5>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
+                    Core JavaScript concepts and ES6+ features for modern development
+                  </p>
+                  <a
+                    href="/section-3"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 w-full justify-center"
+                  >
+                    <span>Start Section 3</span> 🚀
+                  </a>
+                </div>
+              </div>
+
+              {/* Section 4: React */}
+              <div className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative p-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mb-4">
+                    <span className="text-white text-xl">⚛️</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white">Section 4</h4>
+                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">Intermediate</span>
+                  </div>
+                  <h5 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">React & Frontend Frameworks</h5>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
+                    Component-based development with React and modern frontend tools
+                  </p>
+                  <a
+                    href="/section-4"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 w-full justify-center"
+                  >
+                    <span>Start Section 4</span> 🚀
+                  </a>
+                </div>
+              </div>
+
+              {/* Section 5: Full-Stack */}
+              <div className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative p-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mb-4">
+                    <span className="text-white text-xl">🔗</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white">Section 5</h4>
+                    <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Advanced</span>
+                  </div>
+                  <h5 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">Full-Stack Development</h5>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
+                    Connecting frontend with backend APIs and database integration
+                  </p>
+                  <a
+                    href="/section-5"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 w-full justify-center"
+                  >
+                    <span>Start Section 5</span> 🚀
+                  </a>
+                </div>
+              </div>
+
+              {/* All Sections Overview */}
+              <div className="group relative bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-600">
+                <div className="relative p-6 text-center">
+                  <div className="w-12 h-12 bg-gradient-to-r from-gray-500 to-blue-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                    <span className="text-white text-xl">📋</span>
+                  </div>
+                  <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">All Sections</h4>
+                  <h5 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">Complete Overview</h5>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
+                    View progress across all sections and track your learning journey
+                  </p>
+                  <a
+                    href="/my-scores"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-gray-500 to-blue-600 hover:from-gray-600 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 w-full justify-center"
+                  >
+                    <span>View Progress</span> 📊
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Admin Section */}
@@ -188,8 +342,8 @@ export default function Home() {
                   className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm w-full justify-center"
                 >
                   <span>Admin Dashboard</span> 🔍
-                </a>
-              </div>
+          </a>
+        </div>
 
               {/* User Analytics */}
               <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
