@@ -173,12 +173,27 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`}
         {/* Actions */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold mb-4">🔧 Actions</h2>
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <button
               onClick={testConnection}
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
             >
               🔄 Retest Connection
+            </button>
+            <button
+              onClick={async () => {
+                console.log('🔄 Updating section titles...');
+                const success = await SectionDatabaseService.updateSectionTitles();
+                if (success) {
+                  alert('✅ Section titles updated to GitHub Copilot topics!');
+                  testConnection(); // Refresh the test
+                } else {
+                  alert('❌ Failed to update section titles. Check console for details.');
+                }
+              }}
+              className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition-colors"
+            >
+              🚀 Update Section Titles
             </button>
             <button
               onClick={() => window.open('https://supabase.com', '_blank')}

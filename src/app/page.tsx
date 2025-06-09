@@ -289,6 +289,30 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Section 6: Hands-On Examples */}
+              <div className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative p-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center mb-4">
+                    <span className="text-white text-xl">🛠️</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white">Section 6</h4>
+                    <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Advanced</span>
+                  </div>
+                  <h5 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">Hands-On Examples Overview</h5>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
+                    Practical examples of using GitHub Copilot
+                  </p>
+                  <a
+                    href="/section-6"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 w-full justify-center"
+                  >
+                    <span>Start Section 6</span> 🚀
+                  </a>
+                </div>
+              </div>
+
               {/* All Sections Overview */}
               <div className="group relative bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-600">
                 <div className="relative p-6 text-center">

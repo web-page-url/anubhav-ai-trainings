@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { sectionData } from '@/data/section-questions';
+import { SectionDatabaseService } from '@/lib/section-database-service';
 
 interface UserInfo {
   id: string;
@@ -150,10 +151,37 @@ export default function MyScoresPage() {
     router.push('/login');
   };
 
-  const clearAllData = () => {
-    if (confirm('Are you sure you want to clear all your progress? This cannot be undone.')) {
+  const clearAllData = async () => {
+    const choice = confirm(
+      'Choose how to clear your data:\n\n' +
+      'OK = Clear progress only (keep account)\n' +
+      'Cancel = Keep everything\n\n' +
+      'This action cannot be undone!'
+    );
+    
+    if (!choice) return;
+
+    try {
+      console.log('🗑️ Starting data clearing process...');
+      
+      // Clear localStorage first
       localStorage.removeItem('completed_sections');
       localStorage.removeItem('section_progress');
+      console.log('✅ Cleared localStorage data');
+
+      // Clear database if available and user exists
+      if (userInfo?.id) {
+        console.log('🔄 Attempting to clear database data...');
+        const dbCleared = await SectionDatabaseService.deleteUserProgress(userInfo.id);
+        
+        if (dbCleared) {
+          console.log('✅ Successfully cleared database data');
+        } else {
+          console.log('⚠️ Database clear failed or not available');
+        }
+      }
+
+      // Update UI state
       setSectionCompletions([]);
       setQuestionResponses([]);
       setOverallStats({
@@ -166,6 +194,70 @@ export default function MyScoresPage() {
         bestAccuracy: 0,
         currentStreak: 0
       });
+
+      alert('✅ Progress data cleared successfully!\n\nYour account is still active.');
+      
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      alert('❌ Error clearing data. Please try again.');
+    }
+  };
+
+  const clearAccount = async () => {
+    const confirmed = confirm(
+      '⚠️ DELETE ENTIRE ACCOUNT?\n\n' +
+      'This will permanently delete:\n' +
+      '• Your account\n' +
+      '• All progress data\n' +
+      '• All quiz responses\n\n' +
+      'You will need to re-register.\n\n' +
+      'Are you absolutely sure?'
+    );
+    
+    if (!confirmed) return;
+
+    const doubleConfirm = confirm(
+      '🚨 FINAL WARNING!\n\n' +
+      'This action is PERMANENT and IRREVERSIBLE.\n\n' +
+      'Type "DELETE" in the next prompt to confirm.'
+    );
+
+    if (!doubleConfirm) return;
+
+    const finalConfirm = prompt('Type "DELETE" to permanently delete your account:');
+    if (finalConfirm !== 'DELETE') {
+      alert('Account deletion cancelled.');
+      return;
+    }
+
+    try {
+      console.log('🗑️ Starting account deletion process...');
+      
+      // Clear localStorage first
+      localStorage.removeItem('completed_sections');
+      localStorage.removeItem('section_progress');
+      localStorage.removeItem('learning_user_id');
+      localStorage.removeItem('user_info');
+      console.log('✅ Cleared all localStorage data');
+
+      // Delete from database if available
+      if (userInfo?.id) {
+        console.log('🔄 Attempting to delete account from database...');
+        const accountDeleted = await SectionDatabaseService.deleteUserAccount(userInfo.id);
+        
+        if (accountDeleted) {
+          console.log('✅ Successfully deleted account from database');
+        } else {
+          console.log('⚠️ Database account deletion failed or not available');
+        }
+      }
+
+      alert('✅ Account deleted successfully!\n\nRedirecting to login page...');
+      router.push('/login');
+      
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      alert('❌ Error deleting account. Please try again.');
     }
   };
 
@@ -229,11 +321,17 @@ export default function MyScoresPage() {
                 onClick={clearAllData}
                 className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
               >
-                🗑️ Clear Data
+                🗑️ Clear Progress
+              </button>
+              <button
+                onClick={clearAccount}
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                🚨 Delete Account
               </button>
               <button
                 onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
               >
                 🚪 Logout
               </button>

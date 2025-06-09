@@ -383,9 +383,9 @@ export default function SectionLearning({ sectionNumber }: SectionLearningProps)
                     {currentQuestion.points} point{currentQuestion.points !== 1 ? 's' : ''}
                   </span>
                 </div>
-                <Timer 
-                  duration={currentQuestion.time_limit} 
-                  onTimeUp={() => {
+                                                <Timer
+                  initialTime={currentQuestion.time_limit}
+                  onComplete={() => {
                     // Auto-submit with empty answer if time runs out
                     handleQuestionAnswer(currentQuestion.question_id, '', false);
                   }}
@@ -408,9 +408,8 @@ export default function SectionLearning({ sectionNumber }: SectionLearningProps)
                   timeLimit: currentQuestion.time_limit,
                   aiGenerated: false
                 }}
-                onAnswer={handleQuestionAnswer}
-                showResult={answeredQuestions.has(currentQuestion.question_id)}
-                disabled={answeredQuestions.has(currentQuestion.question_id)}
+                onAnswer={(answer, isCorrect) => handleQuestionAnswer(currentQuestion.question_id, answer, isCorrect)}
+                onTimeUp={() => handleQuestionAnswer(currentQuestion.question_id, '', false)}
               />
             </div>
           </div>

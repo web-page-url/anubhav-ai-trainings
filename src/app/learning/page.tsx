@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LearningSession, UserProgress, Section } from '@/types/learning';
+import { LearningSession, UserProgress, Section, QuizQuestion, DiscussionContent } from '@/types/learning';
 import { defaultSections, createDefaultSession } from '@/lib/session-data';
 import QuizCard from '@/components/quiz/QuizCard';
 import Timer from '@/components/ui/Timer';
@@ -75,7 +75,7 @@ export default function LearningPage() {
   };
 
   const currentSection = defaultSections.find(s => s.id === progress.currentSection);
-  const currentPart = currentSection ? currentSection[`part${progress.currentPart}` as keyof Section] : null;
+  const currentPart = currentSection ? (progress.currentPart === 'A' ? currentSection.partA : currentSection.partB) : null;
 
   const startSession = () => {
     setSession(prev => ({ ...prev, status: 'in-progress', startTime: new Date() }));
@@ -92,7 +92,7 @@ export default function LearningPage() {
           title: 'Warm-up Question',
           description: 'Activate your prior knowledge with this quick question',
           content: currentPart.warmupQuestion,
-          duration: currentPart.warmupQuestion.timeLimit
+          duration: 30 // 30 seconds for warmup questions
         };
       case 'discussion':
         return {
@@ -100,7 +100,7 @@ export default function LearningPage() {
           title: currentPart.discussionContent.title,
           description: 'Interactive learning discussion',
           content: currentPart.discussionContent,
-          duration: currentPart.discussionContent.duration * 60 // convert to seconds
+          duration: 180 // 3 minutes for discussion
         };
       case 'quickfire':
         return {
@@ -458,8 +458,8 @@ export default function LearningPage() {
             {/* Step Content */}
             {progress.currentStep === 'warmup' && stepContent.type === 'quiz' && (
               <QuizCard
-                question={stepContent.content as any}
-                onAnswer={(answer, correct) => handleQuizAnswer(stepContent.content.id, answer, correct)}
+                question={stepContent.content as QuizQuestion}
+                onAnswer={(answer, correct) => handleQuizAnswer((stepContent.content as QuizQuestion).id, answer, correct)}
                 onTimeUp={() => advanceStep()}
                 autoStart={true}
                 showExplanation={true}
@@ -471,7 +471,7 @@ export default function LearningPage() {
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
-                      Discussion: {stepContent.content.title}
+                      Discussion: {(stepContent.content as DiscussionContent).title}
                     </h3>
                     <Timer
                       initialTime={stepContent.duration}
@@ -484,7 +484,7 @@ export default function LearningPage() {
                   
                   <div className="prose dark:prose-invert max-w-none">
                     <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
-                      {stepContent.content.content}
+                      {(stepContent.content as DiscussionContent).content}
                     </p>
                   </div>
 

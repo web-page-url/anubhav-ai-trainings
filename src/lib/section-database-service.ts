@@ -391,6 +391,75 @@ export class SectionDatabaseService {
     return this.isAvailable();
   }
 
+  // Delete user's progress data from database
+  static async deleteUserProgress(userId: string): Promise<boolean> {
+    if (!this.isAvailable()) {
+      console.log('Database not available, cannot delete from database');
+      return false;
+    }
+
+    try {
+      console.log('🗑️ Deleting user progress from database for user:', userId);
+
+      // Delete user section progress
+      const { error: progressError } = await supabase
+        .from('user_section_progress')
+        .delete()
+        .eq('user_id', userId);
+
+      if (progressError) {
+        console.error('Error deleting user section progress:', progressError);
+        return false;
+      }
+
+      // Delete user question responses
+      const { error: responsesError } = await supabase
+        .from('user_question_responses')
+        .delete()
+        .eq('user_id', userId);
+
+      if (responsesError) {
+        console.error('Error deleting user question responses:', responsesError);
+        return false;
+      }
+
+      console.log('✅ Successfully deleted user progress from database');
+      return true;
+    } catch (error) {
+      console.error('Error deleting user progress:', error);
+      return false;
+    }
+  }
+
+  // Delete user account entirely (optional - more nuclear option)
+  static async deleteUserAccount(userId: string): Promise<boolean> {
+    if (!this.isAvailable()) {
+      console.log('Database not available, cannot delete from database');
+      return false;
+    }
+
+    try {
+      console.log('🗑️ Deleting user account from database for user:', userId);
+
+      // This will cascade delete all related progress and responses due to foreign key constraints
+      const { error: userError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+
+      if (userError) {
+        console.error('Error deleting user account:', userError);
+        return false;
+      }
+
+      console.log('✅ Successfully deleted user account from database');
+      return true;
+    } catch (error) {
+      console.error('Error deleting user account:', error);
+      return false;
+    }
+  }
+
   // Ensure sections table has the basic sections
   static async initializeSections(): Promise<boolean> {
     if (!this.isAvailable()) {
@@ -413,13 +482,14 @@ export class SectionDatabaseService {
 
       console.log('📚 Existing sections:', existingSections?.map((s: any) => s.section_number) || []);
 
-      // Define the sections we need
+      // Define the sections we need - Updated for GitHub Copilot topics
       const requiredSections = [
-        { section_number: 1, title: 'HTML Basics', slug: 'html-basics', description: 'Learn the fundamentals of HTML' },
-        { section_number: 2, title: 'CSS Fundamentals', slug: 'css-fundamentals', description: 'Master CSS styling techniques' },
-        { section_number: 3, title: 'JavaScript Essentials', slug: 'javascript-essentials', description: 'JavaScript programming basics' },
-        { section_number: 4, title: 'React Introduction', slug: 'react-introduction', description: 'Getting started with React' },
-        { section_number: 5, title: 'Advanced Topics', slug: 'advanced-topics', description: 'Advanced web development concepts' }
+        { section_number: 1, title: 'What is GitHub Copilot?', slug: 'what-is-github-copilot', description: 'Understanding GitHub Copilot as an AI pair programmer' },
+        { section_number: 2, title: 'Key Features and Plans', slug: 'key-features-and-plans', description: 'Exploring GitHub Copilot\'s features and subscription options' },
+        { section_number: 3, title: 'Working with VS Code', slug: 'working-with-vs-code', description: 'Using GitHub Copilot effectively in Visual Studio Code' },
+        { section_number: 4, title: 'Framework-Specific Support', slug: 'framework-specific-support', description: 'How GitHub Copilot works with different frameworks' },
+        { section_number: 5, title: 'Responsible Use and Limitations', slug: 'responsible-use-and-limitations', description: 'Understanding responsible AI practices with GitHub Copilot' },
+        { section_number: 6, title: 'Hands-On Examples Overview', slug: 'hands-on-examples-overview', description: 'Practical examples of using GitHub Copilot' }
       ];
 
       const existingNumbers = new Set(existingSections?.map((s: any) => s.section_number) || []);
@@ -437,9 +507,34 @@ export class SectionDatabaseService {
           return false;
         }
 
-        console.log('✅ Sections initialized successfully');
+        console.log('✅ Sections inserted successfully');
       } else {
         console.log('✅ All sections already exist');
+      }
+
+      // Update existing sections with new titles (in case they have old HTML/CSS titles)
+      console.log('🔄 Updating existing section titles...');
+      
+      for (const section of requiredSections) {
+        if (existingNumbers.has(section.section_number)) {
+          console.log(`📝 Updating section ${section.section_number}: "${section.title}"`);
+          
+          const { error: updateError } = await supabase
+            .from('sections')
+            .update({
+              title: section.title,
+              description: section.description,
+              slug: section.slug,
+              updated_at: new Date().toISOString()
+            })
+            .eq('section_number', section.section_number);
+
+          if (updateError) {
+            console.error(`Error updating section ${section.section_number}:`, updateError);
+          } else {
+            console.log(`✅ Updated section ${section.section_number}`);
+          }
+        }
       }
 
       return true;
@@ -478,6 +573,59 @@ export class SectionDatabaseService {
       return true;
     } catch (error) {
       console.error('Error ensuring user exists:', error);
+      return false;
+    }
+  }
+
+  // Update sections with new GitHub Copilot titles (call this to fix admin dashboard)
+  static async updateSectionTitles(): Promise<boolean> {
+    if (!this.isAvailable()) {
+      console.log('Database not available');
+      return false;
+    }
+
+    try {
+      console.log('🔄 Updating section titles to GitHub Copilot topics...');
+      
+      // Updated section titles for GitHub Copilot
+      const updatedSections = [
+        { section_number: 1, title: 'What is GitHub Copilot?', description: 'Understanding GitHub Copilot as an AI pair programmer' },
+        { section_number: 2, title: 'Key Features and Plans', description: 'Exploring GitHub Copilot\'s features and subscription options' },
+        { section_number: 3, title: 'Working with VS Code', description: 'Using GitHub Copilot effectively in Visual Studio Code' },
+        { section_number: 4, title: 'Framework-Specific Support', description: 'How GitHub Copilot works with different frameworks' },
+        { section_number: 5, title: 'Responsible Use and Limitations', description: 'Understanding responsible AI practices with GitHub Copilot' },
+        { section_number: 6, title: 'Hands-On Examples Overview', description: 'Practical examples of using GitHub Copilot' }
+      ];
+
+      for (const section of updatedSections) {
+        console.log(`📝 Updating section ${section.section_number}: "${section.title}"`);
+        
+        const { error: updateError } = await supabase
+          .from('sections')
+          .upsert({
+            section_number: section.section_number,
+            title: section.title,
+            description: section.description,
+            slug: section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+            duration_minutes: 30 + (section.section_number * 5), // Variable duration
+            difficulty: section.section_number <= 2 ? 'beginner' : section.section_number <= 4 ? 'intermediate' : 'advanced',
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'section_number'
+          });
+
+        if (updateError) {
+          console.error(`Error updating section ${section.section_number}:`, updateError);
+          return false;
+        } else {
+          console.log(`✅ Updated section ${section.section_number}`);
+        }
+      }
+
+      console.log('✅ All section titles updated successfully!');
+      return true;
+    } catch (error) {
+      console.error('Error updating section titles:', error);
       return false;
     }
   }

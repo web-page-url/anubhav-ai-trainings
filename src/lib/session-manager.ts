@@ -27,7 +27,7 @@ export class SessionManager {
       if (userInfo) {
         const parsedUserInfo = JSON.parse(userInfo);
         userId = parsedUserInfo.id;
-        localStorage.setItem('learning_user_id', userId);
+        if (userId) localStorage.setItem('learning_user_id', userId);
       } else {
         // Create anonymous user in database
         try {
@@ -38,7 +38,7 @@ export class SessionManager {
             last_active: new Date().toISOString()
           });
           userId = userData.id;
-          localStorage.setItem('learning_user_id', userId);
+          if (userId) localStorage.setItem('learning_user_id', userId);
         } catch (error) {
           console.error('Error creating user:', error);
           // Fallback to local UUID
@@ -75,7 +75,7 @@ export class SessionManager {
       });
 
       this.sessionId = sessionData.id;
-      localStorage.setItem('current_session_id', this.sessionId);
+      if (this.sessionId) localStorage.setItem('current_session_id', this.sessionId);
       
       return sessionData;
     } catch (error) {

@@ -36,9 +36,7 @@ export default function UserDataPage() {
     activeSessions: 0,
     completedSessions: 0,
     averageScore: 0,
-    completionRate: 0,
-    totalQuestions: 0,
-    correctAnswers: 0
+    completionRate: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -81,16 +79,14 @@ export default function UserDataPage() {
         activeSessions: dashboardStats.activeSessions,
         completedSessions: dashboardStats.completedSessions,
         averageScore: Math.round(dashboardStats.averageScore),
-        completionRate: Math.round(dashboardStats.completionRate),
-        totalQuestions: dashboardStats.totalQuestions,
-        correctAnswers: dashboardStats.correctAnswers
+        completionRate: Math.round(dashboardStats.completionRate)
       });
 
       // Load module-specific stats
       const moduleStatsData: Record<string, ModuleStats> = {};
       for (const module of modules) {
         try {
-          const stats = await DatabaseService.getModuleResults(module.section, module.part);
+          const stats = await DatabaseService.getModuleResults(module.section, module.part as 'A' | 'B');
           // Transform the raw data into ModuleStats format
           const totalParticipants = stats.length;
           const completedParticipants = stats.filter(s => s.completed_at).length;
@@ -515,21 +511,16 @@ export default function UserDataPage() {
                   </h3>
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <span>Total Questions Answered</span>
-                      <span className="text-2xl font-bold text-blue-600">{overallStats.totalQuestions}</span>
+                      <span>Total Users</span>
+                      <span className="text-2xl font-bold text-blue-600">{overallStats.totalUsers}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span>Correct Answers</span>
-                      <span className="text-2xl font-bold text-green-600">{overallStats.correctAnswers}</span>
+                      <span>Active Sessions</span>
+                      <span className="text-2xl font-bold text-green-600">{overallStats.activeSessions}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span>Overall Accuracy</span>
-                      <span className="text-2xl font-bold text-purple-600">
-                        {overallStats.totalQuestions > 0 
-                          ? Math.round((overallStats.correctAnswers / overallStats.totalQuestions) * 100)
-                          : 0
-                        }%
-                      </span>
+                      <span>Average Score</span>
+                      <span className="text-2xl font-bold text-purple-600">{overallStats.averageScore}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Platform Completion Rate</span>

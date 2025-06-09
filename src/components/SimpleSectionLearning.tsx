@@ -698,7 +698,7 @@ export default function SimpleSectionLearning({ sectionNumber }: SimpleSectionLe
                   </span>
                 </div>
                 <Timer 
-                  initialTime={currentQuestion.timeLimit} 
+                  initialTime={180} 
                   onComplete={() => {
                     handleQuestionAnswer(currentQuestion.id, '', false);
                   }}
@@ -723,6 +723,7 @@ export default function SimpleSectionLearning({ sectionNumber }: SimpleSectionLe
                 }}
                 onAnswer={(answer, correct) => handleQuestionAnswer(currentQuestion.id, answer, correct)}
                 onTimeUp={() => handleQuestionAnswer(currentQuestion.id, '', false)}
+                autoStart={true}
                 showExplanation={progress.answeredQuestions.has(currentQuestion.id)}
               />
             </div>
