@@ -1,200 +1,97 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DatabaseService } from '@/lib/supabase';
-
-interface ParticipantScore {
-  id: string;
-  userId: string;
-  name: string;
-  email: string;
-  sectionNumber: number;
-  part: 'A' | 'B';
-  step: string;
-  questionsAnswered: number;
-  questionsCorrect: number;
-  accuracy: number;
-  timeSpent: number;
-  completedAt?: string;
-  status: 'completed' | 'in-progress' | 'not-started';
-}
-
-interface ModuleScores {
-  moduleId: string;
-  title: string;
-  section: number;
-  part: 'A' | 'B';
-  participants: ParticipantScore[];
-  averageScore: number;
-  completionRate: number;
-  totalParticipants: number;
-}
+import { AdminDatabaseService, AdminUserProgress, AdminSectionStats, AdminOverallStats } from '@/lib/admin-database-service';
 
 export default function AdminScoresPage() {
-  const [moduleScores, setModuleScores] = useState<ModuleScores[]>([]);
-  const [selectedModule, setSelectedModule] = useState<string>('all');
+  const [allProgress, setAllProgress] = useState<AdminUserProgress[]>([]);
+  const [sectionStats, setSectionStats] = useState<AdminSectionStats[]>([]);
+  const [overallStats, setOverallStats] = useState<AdminOverallStats>({
+    totalUsers: 0,
+    totalSections: 0,
+    totalQuestions: 0,
+    totalResponses: 0,
+    overallCompletionRate: 0,
+    overallAccuracy: 0,
+    averageTimePerSection: 0
+  });
+  const [activeTab, setActiveTab] = useState<'overview' | 'sections' | 'users'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'score' | 'time' | 'date'>('score');
+  const [selectedSection, setSelectedSection] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'accuracy' | 'time' | 'date'>('accuracy');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'in-progress' | 'not-started'>('all');
   const [loading, setLoading] = useState(true);
-
-  // Module configuration
-  const modules = [
-    { section: 1, part: 'A' as 'A' | 'B', title: 'Web Development Overview' },
-    { section: 1, part: 'B' as 'A' | 'B', title: 'Modern Development Tools' },
-    { section: 2, part: 'A' as 'A' | 'B', title: 'React Fundamentals' },
-    { section: 2, part: 'B' as 'A' | 'B', title: 'State Management & Hooks' },
-    { section: 3, part: 'A' as 'A' | 'B', title: 'Performance Optimization' },
-    { section: 3, part: 'B' as 'A' | 'B', title: 'Testing & Deployment' }
-  ];
+  const [isDatabaseConnected, setIsDatabaseConnected] = useState(false);
 
   useEffect(() => {
-    loadModuleScores();
+    loadAdminData();
   }, []);
 
-  const loadModuleScores = async () => {
+  const loadAdminData = async () => {
     try {
       setLoading(true);
       
-      const moduleScoresData: ModuleScores[] = [];
-      
-      for (const module of modules) {
-        try {
-          // Try to fetch real data from database first
-          let participants: ParticipantScore[] = [];
-          
-                     try {
-             const moduleResults = await DatabaseService.getModuleResults(module.section, module.part as 'A' | 'B');
-            
-                         // Transform database results to our interface
-             participants = moduleResults.map((result: any, index: number) => ({
-               id: result.id || `${module.section}-${module.part}-${index}`,
-               userId: result.user_id || `user-${index}`,
-               name: result.users?.name || `User ${index + 1}`,
-               email: result.users?.email || `user${index + 1}@example.com`,
-               sectionNumber: result.section_number || module.section,
-               part: (result.part || module.part) as 'A' | 'B',
-               step: result.step || 'combined',
-               questionsAnswered: result.questions_answered || 0,
-               questionsCorrect: result.questions_correct || 0,
-               accuracy: result.questions_answered > 0 
-                 ? Math.round((result.questions_correct / result.questions_answered) * 100)
-                 : 0,
-               timeSpent: result.time_spent || 0,
-               completedAt: result.completed_at,
-               status: result.completed_at ? 'completed' : 'in-progress' as 'completed' | 'in-progress' | 'not-started'
-             }));
-            
-                         // If no real data available, generate sample data
-             if (participants.length === 0) {
-               participants = generateSampleParticipants(module.section, module.part as 'A' | 'B');
-             }
-           } catch (dbError) {
-             console.warn(`Database unavailable for module ${module.section}-${module.part}, using sample data:`, dbError);
-             // Fallback to sample data if database is not available
-             participants = generateSampleParticipants(module.section, module.part as 'A' | 'B');
-           }
-          
-          const completedParticipants = participants.filter(p => p.status === 'completed');
-          const averageScore = completedParticipants.length > 0 
-            ? completedParticipants.reduce((acc, p) => acc + p.accuracy, 0) / completedParticipants.length
-            : 0;
-          
-          moduleScoresData.push({
-            moduleId: `${module.section}-${module.part}`,
-            title: module.title,
-            section: module.section,
-            part: module.part,
-            participants,
-            averageScore: Math.round(averageScore),
-            completionRate: Math.round((completedParticipants.length / participants.length) * 100),
-            totalParticipants: participants.length
-          });
-        } catch (error) {
-          console.error(`Error loading module ${module.section}-${module.part}:`, error);
-        }
+      // Test database connection
+      const isConnected = await AdminDatabaseService.testConnection();
+      setIsDatabaseConnected(isConnected);
+
+      if (!isConnected) {
+        console.log('Database not available - showing empty state');
+        setLoading(false);
+        return;
       }
-      
-      setModuleScores(moduleScoresData);
-      
+
+      // Load all data in parallel
+      const [progressData, statsData, overallData] = await Promise.all([
+        AdminDatabaseService.getAllUserProgress(),
+        AdminDatabaseService.getSectionStatistics(),
+        AdminDatabaseService.getOverallStatistics()
+      ]);
+
+      setAllProgress(progressData);
+      setSectionStats(statsData);
+      setOverallStats(overallData);
+
+      console.log('✅ Admin data loaded:', {
+        progress: progressData.length,
+        sections: statsData.length,
+        users: overallData.totalUsers
+      });
+
     } catch (error) {
-      console.error('Error loading module scores:', error);
+      console.error('Error loading admin data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const generateSampleParticipants = (section: number, part: 'A' | 'B'): ParticipantScore[] => {
-    const sampleNames = [
-      'Alice Johnson', 'Bob Smith', 'Carol Davis', 'David Wilson', 'Emma Brown',
-      'Frank Miller', 'Grace Lee', 'Henry Taylor', 'Ivy Chen', 'Jack Anderson',
-      'Kate Thompson', 'Liam Garcia', 'Maya Patel', 'Noah Rodriguez', 'Olivia Martinez',
-      'Peter Kim', 'Quinn O\'Brien', 'Rachel Green', 'Sam Jones', 'Tara Singh',
-      'Uma Williams', 'Victor Chang', 'Wendy Liu', 'Xavier Woods', 'Yuki Tanaka',
-      'Zoe Jackson', 'Ananya Sharma', 'Carlos Mendez', 'Diana Ross', 'Eric Foster'
-    ];
-    
-    const participants: ParticipantScore[] = [];
-    const numParticipants = Math.floor(Math.random() * 15) + 20; // 20-35 participants
-    
-    for (let i = 0; i < numParticipants; i++) {
-      const name = sampleNames[i % sampleNames.length];
-      const email = `${name.toLowerCase().replace(/[^a-z]/g, '')}@example.com`;
-      const questionsAnswered = Math.floor(Math.random() * 8) + 5; // 5-12 questions
-      const baseAccuracy = 0.5 + Math.random() * 0.5; // 50-100% base accuracy
-      const questionsCorrect = Math.floor(questionsAnswered * baseAccuracy);
-      const accuracy = Math.round((questionsCorrect / questionsAnswered) * 100);
-      const timeSpent = Math.floor(Math.random() * 600) + 180; // 3-13 minutes
-      const statusRandom = Math.random();
-      const status = statusRandom > 0.8 ? 'not-started' : statusRandom > 0.1 ? 'completed' : 'in-progress';
-      
-      participants.push({
-        id: `user-${section}-${part}-${i}`,
-        userId: `user-${i}`,
-        name,
-        email,
-        sectionNumber: section,
-        part,
-        step: 'combined', // Combined results from all steps
-        questionsAnswered,
-        questionsCorrect,
-        accuracy,
-        timeSpent,
-        completedAt: status === 'completed' ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
-        status: status as 'completed' | 'in-progress' | 'not-started'
-      });
-    }
-    
-    return participants;
-  };
+  const getFilteredProgress = () => {
+    let filtered = allProgress;
 
-  const getFilteredParticipants = (moduleData: ModuleScores) => {
-    let filtered = moduleData.participants;
-    
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.email.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(p =>
+        p.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.sectionTitle.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
-    // Filter by status
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(p => p.status === filterStatus);
+
+    // Filter by section
+    if (selectedSection !== 'all') {
+      filtered = filtered.filter(p => p.sectionNumber === parseInt(selectedSection));
     }
-    
+
     // Sort
     filtered.sort((a, b) => {
       let aValue: any, bValue: any;
-      
+
       switch (sortBy) {
         case 'name':
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
+          aValue = a.userName.toLowerCase();
+          bValue = b.userName.toLowerCase();
           break;
-        case 'score':
+        case 'accuracy':
           aValue = a.accuracy;
           bValue = b.accuracy;
           break;
@@ -203,440 +100,536 @@ export default function AdminScoresPage() {
           bValue = b.timeSpent;
           break;
         case 'date':
-          aValue = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-          bValue = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+          aValue = new Date(a.completedAt || '1970-01-01');
+          bValue = new Date(b.completedAt || '1970-01-01');
           break;
         default:
           return 0;
       }
-      
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
+
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
     });
-    
+
     return filtered;
   };
 
-  const exportToCSV = (moduleData: ModuleScores) => {
-    const participants = getFilteredParticipants(moduleData);
-    const headers = ['Name', 'Email', 'Questions Answered', 'Questions Correct', 'Accuracy (%)', 'Time Spent (min)', 'Status', 'Completed At'];
-    
+  const exportToCSV = () => {
+    const filteredData = getFilteredProgress();
+    const headers = [
+      'User Name',
+      'Email',
+      'Section',
+      'Total Questions',
+      'Correct Answers',
+      'Accuracy (%)',
+      'Time Spent (s)',
+      'Status',
+      'Completed At'
+    ];
+
     const csvContent = [
       headers.join(','),
-      ...participants.map(p => [
-        `"${p.name}"`,
-        `"${p.email}"`,
-        p.questionsAnswered,
+      ...filteredData.map(p => [
+        `"${p.userName}"`,
+        `"${p.userEmail}"`,
+        `"${p.sectionTitle}"`,
+        p.totalQuestions,
         p.questionsCorrect,
         p.accuracy,
-        Math.round(p.timeSpent / 60),
-        p.status,
-        p.completedAt ? new Date(p.completedAt).toLocaleString() : 'N/A'
+        p.timeSpent,
+        `"${p.status}"`,
+        `"${p.completedAt || 'Not completed'}"`
       ].join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${moduleData.title.replace(/[^a-zA-Z0-9]/g, '_')}_scores.csv`;
+    a.download = `sections_admin_scores_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const exportAllToCSV = () => {
-    const allParticipants: any[] = [];
-    
-    moduleScores.forEach(module => {
-      module.participants.forEach(p => {
-        allParticipants.push({
-          ...p,
-          moduleTitle: module.title,
-          moduleSection: module.section,
-          modulePart: module.part
-        });
-      });
-    });
-    
-    const headers = ['Module', 'Section', 'Part', 'Name', 'Email', 'Questions Answered', 'Questions Correct', 'Accuracy (%)', 'Time Spent (min)', 'Status', 'Completed At'];
-    
-    const csvContent = [
-      headers.join(','),
-      ...allParticipants.map(p => [
-        `"${p.moduleTitle}"`,
-        p.moduleSection,
-        p.modulePart,
-        `"${p.name}"`,
-        `"${p.email}"`,
-        p.questionsAnswered,
-        p.questionsCorrect,
-        p.accuracy,
-        Math.round(p.timeSpent / 60),
-        p.status,
-        p.completedAt ? new Date(p.completedAt).toLocaleString() : 'N/A'
-      ].join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'all_module_scores.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      case 'in-progress':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+      case 'not-started':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Loading Module Scores...</h2>
-          <p className="text-gray-600 dark:text-gray-300">Fetching participant results from database</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 flex items-center justify-center p-4">
+        <div className="text-center space-y-6">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">
+              📊 Loading Admin Dashboard
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300">
+              Fetching sections data from database...
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
-  const currentModuleData = selectedModule === 'all' 
-    ? null 
-    : moduleScores.find(m => m.moduleId === selectedModule);
-
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                👨‍💼 Admin Scores Dashboard
-              </h1>
-              <span className="ml-3 px-2 py-1 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded-full">
-                🔒 ADMIN ONLY
-              </span>
+  if (!isDatabaseConnected) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 text-center">
+            <div className="text-6xl mb-4">🔌</div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              Database Connection Required
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              The admin dashboard requires a database connection to display sections data.
+            </p>
+            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-orange-800 dark:text-orange-400 mb-2">
+                Setup Instructions:
+              </h3>
+              <ol className="text-left text-orange-700 dark:text-orange-300 text-sm space-y-1">
+                <li>1. Add your Supabase credentials to <code>.env.local</code></li>
+                <li>2. Run the database schema from <code>database-questions-schema.sql</code></li>
+                <li>3. Restart the development server</li>
+              </ol>
             </div>
-            <div className="flex space-x-4">
-              <button
-                onClick={exportAllToCSV}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                📤 Export All
-              </button>
-              <a
-                href="/"
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-              >
-                ← Back to Home
-              </a>
-            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            >
+              🔄 Retry Connection
+            </button>
           </div>
         </div>
       </div>
+    );
+  }
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Controls */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Module Selection */}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 mb-8 border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Select Module
-              </label>
-              <select
-                value={selectedModule}
-                onChange={(e) => setSelectedModule(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                <option value="all">📊 All Modules Overview</option>
-                {moduleScores.map((module) => (
-                  <option key={module.moduleId} value={module.moduleId}>
-                    Section {module.section} - Part {module.part}: {module.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Search */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Search Participants
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Name or email..."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Filter by Status
-              </label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as any)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                <option value="all">All Status</option>
-                <option value="completed">✅ Completed</option>
-                <option value="in-progress">🔄 In Progress</option>
-                <option value="not-started">⏸️ Not Started</option>
-              </select>
-            </div>
-
-            {/* Sort */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Sort by
-              </label>
-              <div className="flex space-x-2">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="score">Score</option>
-                  <option value="name">Name</option>
-                  <option value="time">Time</option>
-                  <option value="date">Date</option>
-                </select>
-                <button
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="px-3 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg transition-colors"
-                >
-                  {sortOrder === 'asc' ? '↑' : '↓'}
-                </button>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                📊 Sections Admin Dashboard
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300">
+                Real-time analytics from learning sections platform
+              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded">
+                  🔗 Database Connected
+                </span>
+                <span className="text-xs text-gray-500">
+                  Last updated: {new Date().toLocaleTimeString()}
+                </span>
               </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={loadAdminData}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                🔄 Refresh
+              </button>
+              <button
+                onClick={exportToCSV}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                📥 Export CSV
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Content */}
-        {selectedModule === 'all' ? (
-          // All Modules Overview
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-              📊 All Modules Overview
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {moduleScores.map((module) => (
-                <div key={module.moduleId} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
-                      Section {module.section} - Part {module.part}
-                    </h3>
-                    <button
-                      onClick={() => setSelectedModule(module.moduleId)}
-                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
-                    >
-                      View Details →
-                    </button>
+        {/* Tab Navigation */}
+        <div className="mb-8">
+          <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+            {['overview', 'sections', 'users'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as any)}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  activeTab === tab
+                    ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white'
+                }`}
+              >
+                {tab === 'overview' && '📈 Overview'}
+                {tab === 'sections' && '📚 Sections'}
+                {tab === 'users' && '👥 Users'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-8">
+            {/* Overall Statistics */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">📊 Overall Statistics</h2>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    {overallStats.totalUsers}
                   </div>
-                  
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                    {module.title}
-                  </p>
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span>Participants:</span>
-                      <span className="font-semibold">{module.totalParticipants}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Avg Score:</span>
-                      <span className="font-semibold text-purple-600">{module.averageScore}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Completion Rate:</span>
-                      <span className="font-semibold text-green-600">{module.completionRate}%</span>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Total Users</div>
+                </div>
+                
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    {overallStats.totalSections}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Active Sections</div>
+                </div>
+                
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                    {overallStats.overallAccuracy}%
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Average Accuracy</div>
+                </div>
+                
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                    {overallStats.totalResponses}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Total Responses</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sections Summary */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">📚 Sections Summary</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {sectionStats.map((section) => (
+                  <div key={section.sectionNumber} className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-bold">{section.sectionNumber}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {section.completionRate}%
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-300">Completion</div>
+                      </div>
                     </div>
                     
-                    <div className="mt-4">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span>Progress</span>
-                        <span>{module.completionRate}%</span>
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-2 truncate">
+                      {section.sectionTitle}
+                    </h3>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Users:</span>
+                        <span className="font-semibold ml-1">{section.totalUsers}</span>
                       </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${module.completionRate}%` }}
-                        />
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Accuracy:</span>
+                        <span className="font-semibold ml-1">{section.averageAccuracy}%</span>
                       </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Completed:</span>
+                        <span className="font-semibold ml-1">{section.completedUsers}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Avg Time:</span>
+                        <span className="font-semibold ml-1">{formatTime(section.averageTimeSpent)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {sectionStats.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📚</div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    No section data available
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    Users need to complete sections to see statistics here.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Sections Tab */}
+        {activeTab === 'sections' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">📚 Detailed Section Statistics</h2>
+            
+            <div className="space-y-6">
+              {sectionStats.map((section) => (
+                <div key={section.sectionNumber} className="border border-gray-200 dark:border-gray-600 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-bold text-lg">{section.sectionNumber}</span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                          {section.sectionTitle}
+                        </h3>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Section {section.sectionNumber}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                        {section.completionRate}%
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-300">
+                        Completion Rate
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                    <div>
+                      <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {section.totalUsers}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">Total Users</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-green-600 dark:text-green-400">
+                        {section.completedUsers}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">Completed</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-purple-600 dark:text-purple-400">
+                        {section.averageAccuracy}%
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">Avg Accuracy</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-orange-600 dark:text-orange-400">
+                        {formatTime(section.averageTimeSpent)}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">Avg Time</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-gray-600 dark:text-gray-400">
+                        {section.totalResponses}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">Responses</div>
                     </div>
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        ) : (
-          // Individual Module Details
-          currentModuleData && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    📚 {currentModuleData.title}
-                  </h2>
+              
+              {sectionStats.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📊</div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    No section data available
+                  </h3>
                   <p className="text-gray-600 dark:text-gray-300">
-                    Section {currentModuleData.section} - Part {currentModuleData.part}
+                    Users need to complete sections to see statistics here.
                   </p>
                 </div>
-                <button
-                  onClick={() => exportToCSV(currentModuleData)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  📤 Export Module
-                </button>
-              </div>
+              )}
+            </div>
+          </div>
+        )}
 
-              {/* Module Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                    {currentModuleData.totalParticipants}
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Total Participants</div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                    {currentModuleData.participants.filter(p => p.status === 'completed').length}
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Completed</div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-                  <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                    {currentModuleData.averageScore}%
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Average Score</div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-                  <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                    {currentModuleData.completionRate}%
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Completion Rate</div>
-                </div>
-              </div>
-
-              {/* Participants Table */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Participant Scores ({getFilteredParticipants(currentModuleData).length} results)
-                  </h3>
+        {/* Users Tab */}
+        {activeTab === 'users' && (
+          <div className="space-y-6">
+            {/* Filters */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Search Users
+                  </label>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Name, email, or section..."
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
                 </div>
                 
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Participant
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Score
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Questions
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Time Spent
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Completed
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {getFilteredParticipants(currentModuleData).map((participant) => (
-                        <tr key={participant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                {participant.name}
-                              </div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">
-                                {participant.email}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className={`text-lg font-bold ${
-                                participant.accuracy >= 90 ? 'text-green-600' :
-                                participant.accuracy >= 80 ? 'text-blue-600' :
-                                participant.accuracy >= 70 ? 'text-yellow-600' :
-                                'text-red-600'
-                              }`}>
-                                {participant.accuracy}%
-                              </div>
-                              <div className="ml-2 w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                <div 
-                                  className={`h-2 rounded-full ${
-                                    participant.accuracy >= 90 ? 'bg-green-500' :
-                                    participant.accuracy >= 80 ? 'bg-blue-500' :
-                                    participant.accuracy >= 70 ? 'bg-yellow-500' :
-                                    'bg-red-500'
-                                  }`}
-                                  style={{ width: `${participant.accuracy}%` }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            {participant.questionsCorrect}/{participant.questionsAnswered}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            {Math.round(participant.timeSpent / 60)} min
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              participant.status === 'completed' 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                : participant.status === 'in-progress'
-                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                            }`}>
-                              {participant.status === 'completed' ? '✅ Completed' :
-                               participant.status === 'in-progress' ? '🔄 In Progress' : '⏸️ Not Started'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {participant.completedAt 
-                              ? new Date(participant.completedAt).toLocaleDateString()
-                              : 'N/A'
-                            }
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Section
+                  </label>
+                  <select
+                    value={selectedSection}
+                    onChange={(e) => setSelectedSection(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="all">All Sections</option>
+                    {Array.from(new Set(allProgress.map(p => p.sectionNumber))).sort().map(sectionNum => (
+                      <option key={sectionNum} value={sectionNum.toString()}>
+                        Section {sectionNum}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Sort By
+                  </label>
+                  <select
+                    value={`${sortBy}-${sortOrder}`}
+                    onChange={(e) => {
+                      const [by, order] = e.target.value.split('-');
+                      setSortBy(by as any);
+                      setSortOrder(order as any);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="accuracy-desc">Accuracy (High to Low)</option>
+                    <option value="accuracy-asc">Accuracy (Low to High)</option>
+                    <option value="time-desc">Time (Most to Least)</option>
+                    <option value="time-asc">Time (Least to Most)</option>
+                    <option value="name-asc">Name (A to Z)</option>
+                    <option value="name-desc">Name (Z to A)</option>
+                    <option value="date-desc">Date (Newest First)</option>
+                    <option value="date-asc">Date (Oldest First)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
-                {getFilteredParticipants(currentModuleData).length === 0 && (
+            {/* User Progress Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  👥 User Progress ({getFilteredProgress().length})
+                </h2>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Section
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Progress
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Accuracy
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Time
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Completed
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {getFilteredProgress().map((progress, index) => (
+                      <tr key={`${progress.userId}-${progress.sectionNumber}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {progress.userName}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {progress.userEmail}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {progress.sectionTitle}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Section {progress.sectionNumber}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {progress.questionsCorrect}/{progress.totalQuestions}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            questions
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {progress.accuracy}%
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {formatTime(progress.timeSpent)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(progress.status)}`}>
+                            {progress.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {progress.completedAt ? new Date(progress.completedAt).toLocaleDateString() : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                
+                {getFilteredProgress().length === 0 && (
                   <div className="text-center py-12">
-                    <div className="text-gray-400 text-4xl mb-4">📊</div>
+                    <div className="text-4xl mb-4">👥</div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                      No participants found
+                      No user data found
                     </h3>
                     <p className="text-gray-600 dark:text-gray-300">
-                      Try adjusting your filters or search terms.
+                      Try adjusting your search filters or encourage users to start learning!
                     </p>
                   </div>
                 )}
               </div>
             </div>
-          )
+          </div>
         )}
       </div>
     </div>

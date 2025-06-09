@@ -155,7 +155,18 @@ export default function SimpleSectionLearning({ sectionNumber }: SimpleSectionLe
 
     // Also save to database if connected
     if (isDatabaseConnected && userInfo) {
-      SectionDatabaseService.saveQuestionResponse(userInfo.id, sectionProgress);
+      console.log('💾 Saving question response to database...', {
+        userId: userInfo.id,
+        responseData: sectionProgress
+      });
+      
+      SectionDatabaseService.saveQuestionResponse(userInfo.id, sectionProgress)
+        .then((success) => {
+          console.log('💾 Question response save result:', success);
+        })
+        .catch((error) => {
+          console.error('❌ Question response save error:', error);
+        });
     }
 
     // Move to next question or show results
@@ -184,16 +195,56 @@ export default function SimpleSectionLearning({ sectionNumber }: SimpleSectionLe
       completedAt: new Date().toISOString()
     };
 
+    console.log('🎯 Section Completion Data:', completionData);
+
     // Save completion data to localStorage
     const completedSections = JSON.parse(localStorage.getItem('completed_sections') || '[]');
     completedSections.push(completionData);
     localStorage.setItem('completed_sections', JSON.stringify(completedSections));
+    console.log('✅ Saved to localStorage');
 
     // Also save to database if connected
     if (isDatabaseConnected && userInfo) {
+      console.log('💾 Attempting to save to database...', {
+        userId: userInfo.id,
+        userData: userInfo,
+        completionData
+      });
+      
       setIsSyncing(true);
-      SectionDatabaseService.saveSectionCompletion(userInfo.id, completionData)
-        .finally(() => setIsSyncing(false));
+      
+      // First ensure database is properly set up
+      Promise.all([
+        SectionDatabaseService.initializeSections(),
+        SectionDatabaseService.ensureUserExists(userInfo.id, userInfo.name, userInfo.email)
+      ])
+      .then(([sectionsInitialized, userEnsured]) => {
+        console.log('🔧 Database setup results:', { sectionsInitialized, userEnsured });
+        
+        if (sectionsInitialized && userEnsured) {
+          return SectionDatabaseService.saveSectionCompletion(userInfo.id, completionData);
+        } else {
+          console.log('❌ Database setup failed, cannot save section completion');
+          return false;
+        }
+      })
+      .then((success) => {
+        console.log('💾 Database save result:', success);
+        if (success) {
+          console.log('✅ Successfully saved to database!');
+        } else {
+          console.log('❌ Database save failed');
+        }
+      })
+      .catch((error) => {
+        console.error('❌ Database save error:', error);
+      })
+      .finally(() => setIsSyncing(false));
+    } else {
+      console.log('⚠️ Not saving to database:', {
+        isDatabaseConnected,
+        hasUserInfo: !!userInfo
+      });
     }
 
     setShowResults(true);

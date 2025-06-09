@@ -41,7 +41,21 @@ export interface UserInfo {
 
 export class SectionDatabaseService {
   private static isAvailable(): boolean {
-    return supabase !== null && !!supabaseUrl && !!supabaseKey;
+    const isAvailable = supabase !== null && !!supabaseUrl && !!supabaseKey;
+    
+    if (!isAvailable) {
+      console.error('🚫 Database not available - Missing environment variables:');
+      console.error('   NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? '✅ Set' : '❌ Missing');
+      console.error('   NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseKey ? '✅ Set' : '❌ Missing');
+      console.error('   Supabase client:', supabase ? '✅ Initialized' : '❌ Not initialized');
+      console.error('');
+      console.error('🔧 To fix this:');
+      console.error('   1. Create a Supabase project at https://supabase.com');
+      console.error('   2. Create .env.local file with your credentials');
+      console.error('   3. See DATABASE_SETUP.md for complete instructions');
+    }
+    
+    return isAvailable;
   }
 
   // Save section completion to database
@@ -49,12 +63,16 @@ export class SectionDatabaseService {
     userId: string, 
     completionData: SectionProgress
   ): Promise<boolean> {
+    console.log('🔧 SectionDatabaseService.saveSectionCompletion called:', { userId, completionData });
+    
     if (!this.isAvailable()) {
       console.log('Database not available, using localStorage only');
       return false;
     }
 
     try {
+      console.log('🔍 Looking for section with section_number:', completionData.sectionNumber);
+      
       // First, get the section UUID from section number
       const { data: sectionData, error: sectionError } = await supabase
         .from('sections')
@@ -62,28 +80,35 @@ export class SectionDatabaseService {
         .eq('section_number', completionData.sectionNumber)
         .single();
 
+      console.log('📚 Section lookup result:', { sectionData, sectionError });
+
       if (sectionError || !sectionData) {
         console.error('Error finding section:', sectionError);
         return false;
       }
 
       const sectionId = sectionData.id;
+      console.log('✅ Found section ID:', sectionId);
 
       // Upsert user section progress
+      const progressPayload = {
+        user_id: userId,
+        section_id: sectionId,
+        questions_answered: completionData.totalQuestions,
+        questions_correct: completionData.questionsCorrect,
+        total_score: completionData.score,
+        max_possible_score: completionData.totalQuestions,
+        time_spent: completionData.timeSpent,
+        completion_percentage: completionData.accuracy,
+        status: 'completed',
+        completed_at: completionData.completedAt
+      };
+
+      console.log('💾 Upserting progress with payload:', progressPayload);
+
       const { error: progressError } = await supabase
         .from('user_section_progress')
-        .upsert({
-          user_id: userId,
-          section_id: sectionId,
-          questions_answered: completionData.totalQuestions,
-          questions_correct: completionData.questionsCorrect,
-          total_score: completionData.score,
-          max_possible_score: completionData.totalQuestions,
-          time_spent: completionData.timeSpent,
-          completion_percentage: completionData.accuracy,
-          status: 'completed',
-          completed_at: completionData.completedAt
-        }, {
+        .upsert(progressPayload, {
           onConflict: 'user_id,section_id'
         });
 
@@ -334,18 +359,125 @@ export class SectionDatabaseService {
 
   // Check if database is available
   static async testDatabaseConnection(): Promise<boolean> {
+    console.log('🔍 Testing database connection...');
+    
     if (!this.isAvailable()) {
+      console.log('❌ Database client not available');
       return false;
     }
 
     try {
+      console.log('📡 Attempting to connect to Supabase...');
       const { data, error } = await supabase
         .from('sections')
         .select('id')
         .limit(1);
 
-      return !error;
+      if (error) {
+        console.error('❌ Database connection test failed:', error);
+        return false;
+      }
+      
+      console.log('✅ Database connection successful!');
+      return true;
     } catch (error) {
+      console.error('❌ Database connection test failed:', error);
+      return false;
+    }
+  }
+
+  // Public method to check if database is available
+  static isDatabaseAvailable(): boolean {
+    return this.isAvailable();
+  }
+
+  // Ensure sections table has the basic sections
+  static async initializeSections(): Promise<boolean> {
+    if (!this.isAvailable()) {
+      return false;
+    }
+
+    try {
+      console.log('🔧 Checking if sections table needs initialization...');
+      
+      // Check if sections exist
+      const { data: existingSections, error: fetchError } = await supabase
+        .from('sections')
+        .select('section_number')
+        .order('section_number');
+
+      if (fetchError) {
+        console.error('Error checking sections:', fetchError);
+        return false;
+      }
+
+      console.log('📚 Existing sections:', existingSections?.map((s: any) => s.section_number) || []);
+
+      // Define the sections we need
+      const requiredSections = [
+        { section_number: 1, title: 'HTML Basics', slug: 'html-basics', description: 'Learn the fundamentals of HTML' },
+        { section_number: 2, title: 'CSS Fundamentals', slug: 'css-fundamentals', description: 'Master CSS styling techniques' },
+        { section_number: 3, title: 'JavaScript Essentials', slug: 'javascript-essentials', description: 'JavaScript programming basics' },
+        { section_number: 4, title: 'React Introduction', slug: 'react-introduction', description: 'Getting started with React' },
+        { section_number: 5, title: 'Advanced Topics', slug: 'advanced-topics', description: 'Advanced web development concepts' }
+      ];
+
+      const existingNumbers = new Set(existingSections?.map((s: any) => s.section_number) || []);
+      const sectionsToAdd = requiredSections.filter(section => !existingNumbers.has(section.section_number));
+
+      if (sectionsToAdd.length > 0) {
+        console.log('➕ Adding missing sections:', sectionsToAdd.map(s => s.section_number));
+        
+        const { error: insertError } = await supabase
+          .from('sections')
+          .insert(sectionsToAdd);
+
+        if (insertError) {
+          console.error('Error inserting sections:', insertError);
+          return false;
+        }
+
+        console.log('✅ Sections initialized successfully');
+      } else {
+        console.log('✅ All sections already exist');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error initializing sections:', error);
+      return false;
+    }
+  }
+
+  // Ensure user exists in the users table
+  static async ensureUserExists(userId: string, userName: string, userEmail: string): Promise<boolean> {
+    if (!this.isAvailable()) {
+      return false;
+    }
+
+    try {
+      console.log('👤 Ensuring user exists:', { userId, userName, userEmail });
+      
+      const { error: upsertError } = await supabase
+        .from('users')
+        .upsert({
+          id: userId,
+          name: userName,
+          email: userEmail,
+          last_active: new Date().toISOString()
+        }, {
+          onConflict: 'id'
+        });
+
+      if (upsertError) {
+        console.error('Error ensuring user exists:', upsertError);
+        return false;
+      }
+
+      console.log('✅ User ensured in database');
+      return true;
+    } catch (error) {
+      console.error('Error ensuring user exists:', error);
       return false;
     }
   }
